@@ -4,7 +4,7 @@
 Plans A-D test different configurations of the evolutionary self-play framework.
 Results are saved to separate run directories under runs/.
 
-Total estimated runtime: ~24 hours (RTX 4090, Qwen 3.5 4B/27B).
+Total estimated runtime: ~12 hours (RTX 4090, Qwen 3.5 4B/27B).
 """
 
 import subprocess
@@ -16,46 +16,46 @@ PYTHON = sys.executable
 
 PLANS = [
     {
-        "name": "Plan A: Validation (4B, sequential, connect4, 10 gens)",
+        "name": "Plan A: Validation (4B, sequential, connect4, 5 gens)",
         "args": [
-            "--game", "connect4", "-g", "10", "-p", "10",
+            "--game", "connect4", "-g", "5", "-p", "10",
             "--run-name", "plan_a_validation",
         ],
     },
     {
-        "name": "Plan B: Parallel Benchmark (4B, 8 workers, connect4, 20 gens)",
+        "name": "Plan B: Parallel Benchmark (4B, 8 workers, connect4, 10 gens)",
         "args": [
-            "--game", "connect4", "-g", "20", "-p", "10", "-j", "8",
+            "--game", "connect4", "-g", "10", "-p", "10", "-j", "8",
             "--run-name", "plan_b_parallel",
         ],
     },
     {
-        "name": "Plan C-4B: Model Comparison (4B, 8 workers, connect4, 10 gens)",
+        "name": "Plan C-4B: Model Comparison (4B, 8 workers, connect4, 5 gens)",
         "args": [
-            "--game", "connect4", "-g", "10", "-p", "10", "-j", "8",
+            "--game", "connect4", "-g", "5", "-p", "10", "-j", "8",
             "--model", "qwen3.5:4b",
             "--run-name", "plan_c_4b",
         ],
     },
     {
-        "name": "Plan C-27B: Model Comparison (27B, 4 workers, connect4, 10 gens)",
+        "name": "Plan C-27B: Model Comparison (27B, 4 workers, connect4, 5 gens)",
         "args": [
-            "--game", "connect4", "-g", "10", "-p", "10", "-j", "4",
+            "--game", "connect4", "-g", "5", "-p", "10", "-j", "4",
             "--model", "qwen3.5:27b",
             "--run-name", "plan_c_27b",
         ],
     },
     {
-        "name": "Plan D-Othello: Multi-Game (4B, 8 workers, othello, 20 gens)",
+        "name": "Plan D-Othello: Multi-Game (4B, 8 workers, othello, 10 gens)",
         "args": [
-            "--game", "othello", "-g", "20", "-p", "10", "-j", "8",
+            "--game", "othello", "-g", "10", "-p", "10", "-j", "8",
             "--run-name", "plan_d_othello",
         ],
     },
     {
-        "name": "Plan D-Checkers: Multi-Game (4B, 8 workers, checkers, 20 gens)",
+        "name": "Plan D-Checkers: Multi-Game (4B, 8 workers, checkers, 10 gens)",
         "args": [
-            "--game", "checkers", "-g", "20", "-p", "10", "-j", "8",
+            "--game", "checkers", "-g", "10", "-p", "10", "-j", "8",
             "--run-name", "plan_d_checkers",
         ],
     },

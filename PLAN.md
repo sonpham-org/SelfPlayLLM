@@ -37,31 +37,31 @@ Parallelism = running different games concurrently. Real game speedup ~1.8x.
 ## Plans (Doubled Generations)
 
 ### Plan A: Quick Validation
-- **Config**: `--game connect4 -g 10 -p 10` (sequential, 4B)
+- **Config**: `--game connect4 -g 5 -p 10` (sequential, 4B)
 - **Purpose**: Validate full pipeline end-to-end
 - **Games/gen**: 90 (10 agents round-robin)
-- **Est. time**: ~2.5 hours
+- **Est. time**: ~1.25 hours
 
 ### Plan B: Parallelized Benchmark
-- **Config**: `--game connect4 -g 20 -p 10 -j 8` (8 workers, 4B)
-- **Purpose**: Measure parallelism speedup, observe 20-gen evolution
-- **Est. time**: ~2.9 hours
+- **Config**: `--game connect4 -g 10 -p 10 -j 8` (8 workers, 4B)
+- **Purpose**: Measure parallelism speedup, observe 10-gen evolution
+- **Est. time**: ~1.5 hours
 
 ### Plan C: Model Comparison
-- **C-4B**: `--game connect4 -g 10 -p 10 -j 8 --model qwen3.5:4b`
-- **C-27B**: `--game connect4 -g 10 -p 10 -j 4 --model qwen3.5:27b`
+- **C-4B**: `--game connect4 -g 5 -p 10 -j 8 --model qwen3.5:4b`
+- **C-27B**: `--game connect4 -g 5 -p 10 -j 4 --model qwen3.5:27b`
 - **Purpose**: Compare strategy quality between model sizes
-- **Est. time**: ~1.4 hr (4B) + ~4.7 hr (27B) = ~6.1 hours
+- **Est. time**: ~0.7 hr (4B) + ~2.4 hr (27B) = ~3.1 hours
 
 ### Plan D: Multi-Game Evolution
 - **Games**: othello, checkers (connect4 covered by Plan B)
-- **Config**: `-g 20 -p 10 -j 8` (4B, 8 workers)
+- **Config**: `-g 10 -p 10 -j 8` (4B, 8 workers)
 - **Purpose**: Test if evolved strategies are game-specific
-- **Est. time**: ~5.6 hr (othello) + ~6.75 hr (checkers) = ~12.4 hours
+- **Est. time**: ~2.8 hr (othello) + ~3.4 hr (checkers) = ~6.2 hours
 
 ---
 
-## Total Estimated Runtime: ~24 hours
+## Total Estimated Runtime: ~12 hours
 
 ## Run Command
 ```bash
