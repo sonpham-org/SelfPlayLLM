@@ -19,6 +19,12 @@ from typing import Any
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "qwen3.5:4b"
 
+
+def set_model(model_name: str):
+    """Change the LLM model used for all queries."""
+    global MODEL
+    MODEL = model_name
+
 DEFAULT_SYSTEM_PROMPT = """You are a game-playing AI. Each turn you receive:
 1. Your STRATEGY — dynamic instructions with live game analysis
 2. The current board state and computed features

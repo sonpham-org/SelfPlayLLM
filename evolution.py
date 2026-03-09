@@ -13,6 +13,7 @@ import random
 import re
 import time
 from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
 from typing import Callable
 
@@ -208,6 +209,135 @@ Counter-strategy: {counter}. Games tracked: {games_tracked}.
 Every turn, update memory with new observations.
 After enough data, exploit the opponent's patterns.""",
     },
+    # --- Seeds 10-19: more diverse archetypes ---
+    {
+        "system": "You are a promotion-hungry player who rushes to upgrade pieces. Getting kings, queens, or promoted pieces is your top priority.",
+        "strategy": """Rush to promote pieces. Promoted pieces dominate.
+```python
+my_k = state.get('my_kings', 0)
+opp_k = state.get('opponent_kings', 0)
+king_adv = my_k - opp_k
+```
+King advantage: {king_adv}. My kings: {my_k}, opponent kings: {opp_k}.
+Always advance pieces toward promotion. Protect pieces close to promoting.
+If you have more promoted pieces, use them to dominate the board.""",
+    },
+    {
+        "system": "You are an edge and corner controller. You believe that board edges and corners are strategically crucial positions.",
+        "strategy": """Control edges and corners of the board.
+```python
+my_edge = state.get('my_edge_count', state.get('my_edge_pieces', 0))
+opp_edge = state.get('opponent_edge_count', state.get('opponent_edge_pieces', 0))
+my_corners = state.get('my_corners', 0)
+```
+My edge pieces: {my_edge}. Opponent edge: {opp_edge}. My corners: {my_corners}.
+Edges and corners are safe — hard to attack. Build from the edges inward.
+Corner control wins games in many board games.""",
+    },
+    {
+        "system": "You are a counter-puncher. Absorb the opponent's attack, then strike back hard when they overextend.",
+        "strategy": """Let the opponent attack, then counter.
+```python
+opp_recent = [h for h in history[-8:] if not h.startswith(my_color)]
+opp_active = len(opp_recent)
+should_counter = opp_active > 3
+```
+Opponent recent moves: {opp_active}. {'TIME TO COUNTER-ATTACK!' if should_counter else 'Stay patient, absorb pressure.'}
+Don't initiate — wait for mistakes. The best counter comes after overextension.
+When you see a weakness, strike decisively.""",
+    },
+    {
+        "system": "You are a piece coordinator who keeps pieces working together. No piece left behind — every piece supports another.",
+        "strategy": """Keep pieces coordinated and supporting each other.
+```python
+total = state.get('my_pieces', 0)
+mobility = state.get('my_mobility', num_moves)
+coordination = mobility / max(total, 1)
+```
+Pieces: {total}. Mobility: {mobility}. Coordination ratio: {round(coordination, 1)}.
+High coordination = pieces support each other. Low = isolated pieces.
+Move pieces that improve group coordination. Never leave pieces isolated.""",
+    },
+    {
+        "system": "You are a risk calculator who quantifies danger before every move. You only take calculated risks with positive expected value.",
+        "strategy": """Calculate risk before every decision.
+```python
+my_p = state.get('my_pieces', 0)
+opp_p = state.get('opponent_pieces', 0)
+my_mob = state.get('my_mobility', num_moves)
+opp_mob = state.get('opponent_mobility', 0)
+risk_score = opp_mob - my_mob + (opp_p - my_p) * 2
+risk_level = 'HIGH DANGER' if risk_score > 3 else 'moderate' if risk_score > 0 else 'safe'
+```
+Risk level: {risk_level} (score: {risk_score}).
+If HIGH DANGER: play defensively, avoid trades.
+If safe: push for advantage aggressively.
+Never gamble when the risk score is high.""",
+    },
+    {
+        "system": "You are a pattern recognizer who tracks board state changes in memory to detect repeating patterns and exploit them.",
+        "strategy": """Detect and exploit patterns using memory.
+```python
+move_count = memory.get('move_count', 0) + 1
+patterns = memory.get('patterns', [])
+last_opp = history[-1] if history else 'none'
+```
+Moves tracked: {move_count}. Last opponent move: {last_opp}.
+Patterns detected: {len(patterns)}.
+Store each opponent move in memory. Look for repetition.
+If opponent repeats patterns, anticipate and counter their next move.
+Update memory_update with: move_count, patterns, and last_opponent_move.""",
+    },
+    {
+        "system": "You are a greedy trader who always takes favorable exchanges, even slight ones. Slow material accumulation wins.",
+        "strategy": """Always trade when slightly favorable. Grind down the opponent.
+```python
+advantage = state.get('my_pieces', 0) - state.get('opponent_pieces', 0)
+should_trade = advantage >= 0
+```
+Material advantage: {advantage}. {'Trade freely!' if should_trade else 'Avoid trades — you are behind.'}
+Even trading one piece for one when ahead is good — fewer pieces amplifies your lead.
+Never pass up a capture. Death by a thousand cuts.""",
+    },
+    {
+        "system": "You are a mobility maximizer. You believe the player with more options wins. Restrict opponent moves while expanding your own.",
+        "strategy": """Maximize your mobility, minimize opponent's.
+```python
+my_mob = state.get('my_mobility', num_moves)
+opp_mob = state.get('opponent_mobility', 0)
+mob_ratio = my_mob / max(opp_mob, 1)
+```
+My moves: {my_mob}. Opponent moves: {opp_mob}. Ratio: {round(mob_ratio, 2)}.
+If ratio > 1.5: you dominate — press the advantage.
+If ratio < 0.7: you're cramped — find a way to break out.
+Every move should increase your options or reduce theirs.""",
+    },
+    {
+        "system": "You are an opening specialist. You have memorized strong opening sequences and use them to get early advantages.",
+        "strategy": """Use strong openings to get early advantage.
+```python
+phase = 'opening' if move_number < 8 else 'midgame' if move_number < 30 else 'endgame'
+opening_moves = memory.get('opening_plan', [])
+```
+Phase: {phase}. Opening plan: {opening_moves}.
+In the opening: grab center control and develop pieces quickly.
+In midgame: exploit the advantage built in the opening.
+Store your opening plan in memory. Adapt if opponent disrupts it.""",
+    },
+    {
+        "system": "You are a chaos agent. You play unpredictably to confuse opponents. Conventional strategies fail against you.",
+        "strategy": """Be unpredictable. Confuse the opponent.
+```python
+import_random = False
+move_idx = (move_number * 7 + 3) % max(num_moves, 1)
+surprise_factor = move_number % 3
+```
+Surprise factor: {surprise_factor}. Consider move #{move_idx} from the list.
+If surprise_factor is 0: play the most aggressive move.
+If 1: play the most defensive move.
+If 2: play the move your opponent least expects.
+Unpredictability is a weapon. Never be formulaic.""",
+    },
 ]
 
 
@@ -369,7 +499,7 @@ def mutate_agent(agent: Agent) -> tuple[str, str]:
     """Mutate an agent's strategy. Returns (new_system_prompt, new_strategy_prompt)."""
     prompt = _build_mutate_prompt(agent)
     try:
-        response = query_llm(MUTATE_SYSTEM, prompt, temperature=0.7, think=True,
+        response = query_llm(MUTATE_SYSTEM, prompt, temperature=0.7, think=False,
                              max_tokens=1500)
         return _parse_mutation_response(response, agent.system_prompt, agent.strategy_prompt)
     except Exception as e:
@@ -381,7 +511,7 @@ def crossover_agents(a: Agent, b: Agent) -> tuple[str, str]:
     """Combine two agents. Returns (new_system_prompt, new_strategy_prompt)."""
     prompt = _build_crossover_prompt(a, b)
     try:
-        response = query_llm(CROSSOVER_SYSTEM, prompt, temperature=0.7, think=True,
+        response = query_llm(CROSSOVER_SYSTEM, prompt, temperature=0.7, think=False,
                              max_tokens=1500)
         return _parse_mutation_response(response, a.system_prompt, a.strategy_prompt)
     except Exception as e:
@@ -419,44 +549,84 @@ def _record_result(agent_a, agent_b, winner: str, moves: int,
 
 
 def run_tournament(agents: list[Agent], game_factory: Callable,
-                   verbose: bool = True) -> list[Agent]:
-    """Round-robin tournament. game_factory() creates a new game instance each match."""
+                   verbose: bool = True, max_workers: int = 1) -> list[Agent]:
+    """Round-robin tournament. game_factory() creates a new game instance each match.
+
+    max_workers: number of parallel game threads (1 = sequential).
+    """
     for a in agents:
         a.reset_stats()
+        a.reset_game_memory()
 
     pairs = list(combinations(range(len(agents)), 2))
     total_games = len(pairs) * 2
-    game_num = 0
 
+    # Build match list
+    matches = []
+    game_num = 0
     for i, j in pairs:
         for a_idx, b_idx in [(i, j), (j, i)]:
             game_num += 1
-            agent_a = agents[a_idx]
-            agent_b = agents[b_idx]
+            matches.append((game_num, a_idx, b_idx))
 
-            game = game_factory()
-            p1, p2 = game.players
+    def play_single_match(gn, a_idx, b_idx):
+        agent_a = agents[a_idx]
+        agent_b = agents[b_idx]
+        game = game_factory()
+        p1, p2 = game.players
+        t0 = time.time()
+        result = play_game(game, agent_a, agent_b, max_moves=150)
+        elapsed = time.time() - t0
+        return {
+            "game_num": gn, "a_idx": a_idx, "b_idx": b_idx,
+            "winner": result["winner"], "moves": result["moves"],
+            "p1": p1, "p2": p2, "elapsed": elapsed,
+        }
 
+    if max_workers > 1:
+        # --- Parallel execution ---
+        game_results = []
+        completed = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(play_single_match, *m): m for m in matches}
+            for future in as_completed(futures):
+                try:
+                    r = future.result()
+                except Exception as e:
+                    info = futures[future]
+                    print(f"  Game {info[0]} FAILED: {e}")
+                    continue
+                completed += 1
+                game_results.append(r)
+                if verbose:
+                    a_id = agents[r["a_idx"]].id
+                    b_id = agents[r["b_idx"]].id
+                    w = r["winner"]
+                    sym = "A" if w == r["p1"] else ("B" if w == r["p2"] else "D")
+                    print(f"  [{completed}/{total_games}] "
+                          f"A{a_id}({r['p1']}) vs A{b_id}({r['p2']}) "
+                          f"-> {sym} ({r['moves']}mv, {r['elapsed']:.1f}s)")
+    else:
+        # --- Sequential execution ---
+        game_results = []
+        for gn, a_idx, b_idx in matches:
             if verbose:
-                print(f"  Game {game_num}/{total_games}: "
-                      f"A{agent_a.id}({p1}) vs A{agent_b.id}({p2})",
+                print(f"  Game {gn}/{total_games}: "
+                      f"A{agents[a_idx].id} vs A{agents[b_idx].id}",
                       end=" ", flush=True)
-
-            # Fresh game memory for each match
-            agent_a.reset_game_memory()
-            agent_b.reset_game_memory()
-
-            t0 = time.time()
-            result = play_game(game, agent_a, agent_b, max_moves=150)
-            elapsed = time.time() - t0
-
-            _record_result(agent_a, agent_b, result["winner"], result["moves"],
-                           p1, p2, f"Agent {agent_a.id}", f"Agent {agent_b.id}")
-
+            r = play_single_match(gn, a_idx, b_idx)
+            game_results.append(r)
             if verbose:
-                w = result["winner"]
-                sym = "A" if w == p1 else ("B" if w == p2 else "D")
-                print(f"-> {sym} ({result['moves']}mv, {elapsed:.1f}s)")
+                w = r["winner"]
+                sym = "A" if w == r["p1"] else ("B" if w == r["p2"] else "D")
+                print(f"-> {sym} ({r['moves']}mv, {r['elapsed']:.1f}s)")
+
+    # Apply results in match order (deterministic ELO progression)
+    for r in sorted(game_results, key=lambda x: x["game_num"]):
+        agent_a = agents[r["a_idx"]]
+        agent_b = agents[r["b_idx"]]
+        _record_result(agent_a, agent_b, r["winner"], r["moves"],
+                       r["p1"], r["p2"], f"Agent {agent_a.id}", f"Agent {agent_b.id}")
 
     return sorted(agents, key=lambda a: (a.score, a.elo), reverse=True)
 
@@ -465,27 +635,40 @@ def run_tournament(agents: list[Agent], game_factory: Callable,
 # Evolution
 # ═══════════════════════════════════════════════════════════════
 
-def evolve(agents: list[Agent], verbose: bool = True) -> list[Agent]:
-    """Top 5 survive. Bottom 5 replaced by mutations/crossovers of top 5."""
-    survivors = agents[:5]
+def evolve(agents: list[Agent], survive_ratio: float = 0.5,
+           mutation_ratio: float = 0.6, verbose: bool = True) -> list[Agent]:
+    """Top half survives. Bottom half replaced by mutations/crossovers.
+
+    survive_ratio: fraction of population that survives (default 0.5)
+    mutation_ratio: of replacements, what fraction are mutations vs crossovers (default 0.6)
+    """
+    n = len(agents)
+    n_survive = max(2, int(n * survive_ratio))
+    n_replace = n - n_survive
+    n_mutate = int(n_replace * mutation_ratio)
+    n_crossover = n_replace - n_mutate
+
+    survivors = agents[:n_survive]
     new_agents = []
 
     if verbose:
-        print("\n--- EVOLUTION ---")
+        print(f"\n--- EVOLUTION ({n_survive} survive, {n_mutate} mutations, {n_crossover} crossovers) ---")
         print("Survivors:")
-        for a in survivors:
+        for a in survivors[:5]:
             print(f"  Agent {a.id}: score={a.score} W={a.wins} L={a.losses} D={a.draws}")
+        if n_survive > 5:
+            print(f"  ... and {n_survive - 5} more")
 
-    for idx in range(5):
-        old_id = agents[5 + idx].id
+    for idx in range(n_replace):
+        old_id = agents[n_survive + idx].id
 
-        if idx < 3:
-            parent = survivors[idx]
+        if idx < n_mutate:
+            parent = survivors[idx % n_survive]
             if verbose:
                 print(f"  Mutating Agent {parent.id} -> new Agent {old_id}")
             new_sys, new_strat = mutate_agent(parent)
         else:
-            p1, p2 = random.sample(survivors, 2)
+            p1, p2 = random.sample(survivors[:min(n_survive, 10)], 2)
             if verbose:
                 print(f"  Crossover Agent {p1.id} x Agent {p2.id} -> new Agent {old_id}")
             new_sys, new_strat = crossover_agents(p1, p2)
@@ -503,14 +686,20 @@ def evolve(agents: list[Agent], verbose: bool = True) -> list[Agent]:
 # Population setup / persistence
 # ═══════════════════════════════════════════════════════════════
 
-def create_initial_population() -> list[Agent]:
-    return [
-        Agent(id=i, system_prompt=s["system"], strategy_prompt=s["strategy"])
-        for i, s in enumerate(SEED_AGENTS)
-    ]
+def create_initial_population(n: int = 10) -> list[Agent]:
+    """Create initial population of n agents from seed strategies.
+
+    If n > len(SEED_AGENTS), wraps around with slight variation.
+    """
+    agents = []
+    for i in range(n):
+        seed = SEED_AGENTS[i % len(SEED_AGENTS)]
+        agents.append(Agent(id=i, system_prompt=seed["system"],
+                            strategy_prompt=seed["strategy"]))
+    return agents
 
 
-def get_run_dir(resume_path: str | None = None) -> str:
+def get_run_dir(resume_path: str | None = None, name: str | None = None) -> str:
     """Return the run directory. Creates a new timestamped one if not resuming."""
     if resume_path:
         run_dir = resume_path.rstrip("/")
@@ -519,7 +708,8 @@ def get_run_dir(resume_path: str | None = None) -> str:
         return run_dir
     from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join("runs", timestamp)
+    dirname = f"{name}_{timestamp}" if name else timestamp
+    run_dir = os.path.join("runs", dirname)
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
 

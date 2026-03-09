@@ -9,6 +9,8 @@ evolve over generations.
 import argparse
 import time
 
+import agent
+
 from evolution import (
     create_initial_population, run_tournament, evolve,
     save_state, load_state, get_run_dir, Champion,
@@ -83,28 +85,41 @@ def main():
                         help="Number of generations")
     parser.add_argument("--resume", type=str, default=None, metavar="RUN_DIR",
                         help="Resume from an existing run directory")
+    parser.add_argument("--population", "-p", type=int, default=10,
+                        help="Number of agents in population")
     parser.add_argument("--champions", "-c", type=int, default=0,
                         help="Number of past champions to challenge (0 = disabled)")
+    parser.add_argument("--parallel", "-j", type=int, default=1,
+                        help="Parallel game workers (default: 1 = sequential)")
+    parser.add_argument("--model", "-m", type=str, default=None,
+                        help="LLM model name for Ollama (default: qwen3.5:4b)")
+    parser.add_argument("--run-name", "-n", type=str, default=None,
+                        help="Name prefix for the run directory")
     args = parser.parse_args()
 
+    if args.model:
+        agent.set_model(args.model)
+
     game_factory = GAMES[args.game]
-    run_dir = get_run_dir(args.resume)
+    run_dir = get_run_dir(args.resume, name=args.run_name)
 
     if args.resume:
         print(f"Resuming from {run_dir}")
         agents, start_gen, log, hall_of_fame = load_state(run_dir)
         start_gen += 1
     else:
-        agents = create_initial_population()
+        agents = create_initial_population(n=args.population)
         start_gen = 1
         log = []
         hall_of_fame = []
 
     print(f"Run directory: {run_dir}")
     print(f"Game: {args.game}")
+    print(f"Model: {agent.MODEL}")
     print(f"Running {args.generations} generation(s) with {len(agents)} agents")
     rr_games = len(agents) * (len(agents) - 1)
-    print(f"Each generation: {rr_games} round-robin games\n")
+    workers_str = f"{args.parallel} workers" if args.parallel > 1 else "sequential"
+    print(f"Each generation: {rr_games} round-robin games ({workers_str})\n")
 
     for gen in range(start_gen, start_gen + args.generations):
         print(f"\n{'#'*70}")
@@ -115,7 +130,8 @@ def main():
 
         # Round-robin tournament
         print("\nTournament:")
-        agents = run_tournament(agents, game_factory, verbose=True)
+        agents = run_tournament(agents, game_factory, verbose=True,
+                                max_workers=args.parallel)
         elapsed = time.time() - t0
 
         print_leaderboard(agents, gen, args.game, hall_of_fame)
