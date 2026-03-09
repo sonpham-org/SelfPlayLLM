@@ -128,10 +128,12 @@ def main():
 
         t0 = time.time()
 
-        # Round-robin tournament
+        # Round-robin tournament (with mid-tournament checkpoints)
         print("\nTournament:")
+        _save = lambda: save_state(agents, gen, log, hall_of_fame, run_dir)
         agents = run_tournament(agents, game_factory, verbose=True,
-                                max_workers=args.parallel)
+                                max_workers=args.parallel,
+                                save_callback=_save, save_every=20)
         elapsed = time.time() - t0
 
         print_leaderboard(agents, gen, args.game, hall_of_fame)

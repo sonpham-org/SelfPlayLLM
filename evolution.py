@@ -549,10 +549,14 @@ def _record_result(agent_a, agent_b, winner: str, moves: int,
 
 
 def run_tournament(agents: list[Agent], game_factory: Callable,
-                   verbose: bool = True, max_workers: int = 1) -> list[Agent]:
+                   verbose: bool = True, max_workers: int = 1,
+                   save_callback: Callable | None = None,
+                   save_every: int = 20) -> list[Agent]:
     """Round-robin tournament. game_factory() creates a new game instance each match.
 
     max_workers: number of parallel game threads (1 = sequential).
+    save_callback: if provided, called every save_every games for mid-tournament checkpoints.
+    save_every: checkpoint frequency in number of completed games.
     """
     for a in agents:
         a.reset_stats()
@@ -622,11 +626,13 @@ def run_tournament(agents: list[Agent], game_factory: Callable,
                 print(f"-> {sym} ({r['moves']}mv, {r['elapsed']:.1f}s)")
 
     # Apply results in match order (deterministic ELO progression)
-    for r in sorted(game_results, key=lambda x: x["game_num"]):
+    for i, r in enumerate(sorted(game_results, key=lambda x: x["game_num"]), 1):
         agent_a = agents[r["a_idx"]]
         agent_b = agents[r["b_idx"]]
         _record_result(agent_a, agent_b, r["winner"], r["moves"],
                        r["p1"], r["p2"], f"Agent {agent_a.id}", f"Agent {agent_b.id}")
+        if save_callback and i % save_every == 0:
+            save_callback()
 
     return sorted(agents, key=lambda a: (a.score, a.elo), reverse=True)
 
