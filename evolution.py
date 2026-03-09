@@ -551,13 +551,17 @@ def _record_result(agent_a, agent_b, winner: str, moves: int,
 def run_tournament(agents: list[Agent], game_factory: Callable,
                    verbose: bool = True, max_workers: int = 1,
                    save_callback: Callable | None = None,
-                   save_every: int = 20) -> list[Agent]:
+                   save_every: int = 20,
+                   play_fn: Callable | None = None) -> list[Agent]:
     """Round-robin tournament. game_factory() creates a new game instance each match.
 
     max_workers: number of parallel game threads (1 = sequential).
     save_callback: if provided, called every save_every games for mid-tournament checkpoints.
     save_every: checkpoint frequency in number of completed games.
+    play_fn: custom play function (default: agent.play_game).
     """
+    if play_fn is None:
+        play_fn = play_game
     for a in agents:
         a.reset_stats()
         a.reset_game_memory()
@@ -579,7 +583,7 @@ def run_tournament(agents: list[Agent], game_factory: Callable,
         game = game_factory()
         p1, p2 = game.players
         t0 = time.time()
-        result = play_game(game, agent_a, agent_b, max_moves=150)
+        result = play_fn(game, agent_a, agent_b, max_moves=150)
         elapsed = time.time() - t0
         return {
             "game_num": gn, "a_idx": a_idx, "b_idx": b_idx,
